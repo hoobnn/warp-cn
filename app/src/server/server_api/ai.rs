@@ -1399,11 +1399,18 @@ pub trait AIClient: 'static + Send + Sync {
     async fn list_skills(
         &self,
         repo: Option<String>,
+        team_scope: RequestTeamScope,
     ) -> anyhow::Result<Vec<AgentSkillItem>, anyhow::Error>;
 
-    async fn list_agents(&self) -> anyhow::Result<Vec<AgentResponse>, anyhow::Error>;
+    async fn list_agents(
+        &self,
+        team_scope: RequestTeamScope,
+    ) -> anyhow::Result<Vec<AgentResponse>, anyhow::Error>;
 
-    async fn list_agents_raw(&self) -> anyhow::Result<serde_json::Value, anyhow::Error>;
+    async fn list_agents_raw(
+        &self,
+        team_scope: RequestTeamScope,
+    ) -> anyhow::Result<serde_json::Value, anyhow::Error>;
 
     async fn get_agent(&self, uid: &str) -> anyhow::Result<AgentResponse, anyhow::Error>;
 
@@ -1412,11 +1419,13 @@ pub trait AIClient: 'static + Send + Sync {
     async fn create_agent(
         &self,
         request: CreateAgentRequest,
+        team_scope: RequestTeamScope,
     ) -> anyhow::Result<AgentResponse, anyhow::Error>;
 
     async fn create_agent_raw(
         &self,
         request: CreateAgentRequest,
+        team_scope: RequestTeamScope,
     ) -> anyhow::Result<serde_json::Value, anyhow::Error>;
 
     async fn update_agent(
@@ -1433,7 +1442,10 @@ pub trait AIClient: 'static + Send + Sync {
 
     async fn delete_agent(&self, uid: &str) -> anyhow::Result<(), anyhow::Error>;
 
-    async fn list_memory_stores(&self) -> anyhow::Result<Vec<MemoryStoreItem>, anyhow::Error>;
+    async fn list_memory_stores(
+        &self,
+        team_scope: RequestTeamScope,
+    ) -> anyhow::Result<Vec<MemoryStoreItem>, anyhow::Error>;
 
     async fn list_memory_store_memories(
         &self,
@@ -2663,16 +2675,22 @@ impl AIClient for ServerApi {
     async fn list_skills(
         &self,
         repo: Option<String>,
+        team_scope: RequestTeamScope,
     ) -> anyhow::Result<Vec<AgentSkillItem>, anyhow::Error> {
         let path = match repo {
             Some(repo) => format!("agent?repo={}", urlencoding::encode(&repo)),
             None => "agent".to_string(),
         };
-        let response: ListSkillsResponse = self.get_public_api(&path).await?;
+        let response: ListSkillsResponse = self.get_public_api_for_team(&path, team_scope).await?;
         Ok(response.agents)
     }
-    async fn list_memory_stores(&self) -> anyhow::Result<Vec<MemoryStoreItem>, anyhow::Error> {
-        let response: ListMemoryStoresResponse = self.get_public_api("memory_stores").await?;
+    async fn list_memory_stores(
+        &self,
+        team_scope: RequestTeamScope,
+    ) -> anyhow::Result<Vec<MemoryStoreItem>, anyhow::Error> {
+        let response: ListMemoryStoresResponse = self
+            .get_public_api_for_team("memory_stores", team_scope)
+            .await?;
         Ok(response.memory_stores)
     }
 
@@ -2773,13 +2791,21 @@ impl AIClient for ServerApi {
         Ok(response.versions)
     }
 
-    async fn list_agents(&self) -> anyhow::Result<Vec<AgentResponse>, anyhow::Error> {
-        let response: ListAgentsResponse = self.get_public_api("agent/identities").await?;
+    async fn list_agents(
+        &self,
+        team_scope: RequestTeamScope,
+    ) -> anyhow::Result<Vec<AgentResponse>, anyhow::Error> {
+        let response: ListAgentsResponse = self
+            .get_public_api_for_team("agent/identities", team_scope)
+            .await?;
         Ok(response.agents)
     }
-
-    async fn list_agents_raw(&self) -> anyhow::Result<serde_json::Value, anyhow::Error> {
-        self.get_public_api("agent/identities").await
+    async fn list_agents_raw(
+        &self,
+        team_scope: RequestTeamScope,
+    ) -> anyhow::Result<serde_json::Value, anyhow::Error> {
+        self.get_public_api_for_team("agent/identities", team_scope)
+            .await
     }
 
     async fn get_agent(&self, uid: &str) -> anyhow::Result<AgentResponse, anyhow::Error> {
@@ -2793,15 +2819,19 @@ impl AIClient for ServerApi {
     async fn create_agent(
         &self,
         request: CreateAgentRequest,
+        team_scope: RequestTeamScope,
     ) -> anyhow::Result<AgentResponse, anyhow::Error> {
-        self.post_public_api("agent/identities", &request).await
+        self.post_public_api_for_team("agent/identities", &request, team_scope)
+            .await
     }
 
     async fn create_agent_raw(
         &self,
         request: CreateAgentRequest,
+        team_scope: RequestTeamScope,
     ) -> anyhow::Result<serde_json::Value, anyhow::Error> {
-        self.post_public_api("agent/identities", &request).await
+        self.post_public_api_for_team("agent/identities", &request, team_scope)
+            .await
     }
 
     async fn update_agent(
