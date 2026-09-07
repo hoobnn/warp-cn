@@ -234,6 +234,17 @@ pub(super) fn resolve_owner_for_team_scope(
     }
 }
 
+pub(super) fn environment_matches_scope(
+    environment: &CloudAmbientAgentEnvironment,
+    team_scope: &(impl TeamScope + ?Sized),
+    include_user_owned_for_team_scope: bool,
+) -> bool {
+    let selected_team_uid = team_scope.team_uid();
+    match environment.permissions().owner {
+        Owner::User { .. } => selected_team_uid.is_none() || include_user_owned_for_team_scope,
+        Owner::Team { team_uid } => selected_team_uid == Some(team_uid),
+    }
+}
 /// Refresh workspace metadata before executing an operation.
 ///
 /// This ensures that team state is up-to-date before creating cloud objects or performing
@@ -336,10 +347,11 @@ pub enum EnvironmentChoice {
 }
 
 impl EnvironmentChoice {
-    /// Resolve the environment to use when creating an agent integration.
+    /// Resolve the environment to use when creating an agent operation.
     /// Warp Drive *must* have been synced first.
     pub fn resolve_for_create(
         args: EnvironmentCreateArgs,
+        team_scope: &(impl TeamScope + ?Sized),
         ctx: &AppContext,
     ) -> Result<Self, ResolveConfigurationError> {
         if args.no_environment {
@@ -351,6 +363,7 @@ impl EnvironmentChoice {
             let mut synced_environments: Vec<(ServerId, &CloudAmbientAgentEnvironment)> =
                 all_environments
                     .iter()
+                    .filter(|env| environment_matches_scope(env, team_scope, true))
                     .filter_map(|env| {
                         if let SyncId::ServerId(server_id) = env.sync_id() {
                             Some((server_id, env))
