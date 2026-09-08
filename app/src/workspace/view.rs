@@ -9442,9 +9442,11 @@ impl Workspace {
         self.current_workspace_state.is_agent_management_view_open = is_open;
         let window_id = self.window_id;
         let view_id = self.agent_management_view.id();
-        AgentConversationsModel::handle(ctx).update(ctx, |model, ctx| {
+        let team_context_resolver =
+            UserWorkspaces::team_context_resolver(self.agent_management_view.downgrade());
+        AgentConversationsModel::handle(ctx).update(ctx, move |model, ctx| {
             if is_open {
-                model.register_view_open(window_id, view_id, ctx);
+                model.register_view_open(window_id, view_id, team_context_resolver, ctx);
             } else {
                 model.register_view_closed(window_id, view_id, ctx);
             }

@@ -1314,6 +1314,7 @@ pub trait AIClient: 'static + Send + Sync {
         &self,
         limit: i32,
         filter: TaskListFilter,
+        request_team_scope: Option<RequestTeamScope>,
     ) -> anyhow::Result<Vec<AmbientAgentTask>, anyhow::Error>;
 
     /// List agent runs and return the raw server JSON response.
@@ -1321,6 +1322,7 @@ pub trait AIClient: 'static + Send + Sync {
         &self,
         limit: i32,
         filter: TaskListFilter,
+        request_team_scope: Option<RequestTeamScope>,
     ) -> anyhow::Result<serde_json::Value, anyhow::Error>;
 
     async fn get_ambient_agent_task(
@@ -1641,6 +1643,22 @@ fn into_file_artifact_record(
 }
 
 impl ServerApi {
+    async fn get_public_api_with_team_scope<R>(
+        &self,
+        path: &str,
+        request_team_scope: Option<RequestTeamScope>,
+    ) -> anyhow::Result<R>
+    where
+        R: serde::de::DeserializeOwned,
+    {
+        self.base_client
+            .get_public_api_for_team(
+                path,
+                request_team_scope.and_then(RequestTeamScope::team_uid),
+            )
+            .await
+    }
+
     pub(crate) async fn send_agent_message_for_task(
         &self,
         task_id: &AmbientAgentTaskId,
@@ -2433,9 +2451,12 @@ impl AIClient for ServerApi {
         &self,
         limit: i32,
         filter: TaskListFilter,
+        request_team_scope: Option<RequestTeamScope>,
     ) -> anyhow::Result<Vec<AmbientAgentTask>, anyhow::Error> {
         let url = build_list_agent_runs_url(limit, &filter);
-        let response: ListRunsResponse = self.get_public_api(&url).await?;
+        let response: ListRunsResponse = self
+            .get_public_api_with_team_scope(&url, request_team_scope)
+            .await?;
         Ok(response.runs)
     }
 
@@ -2443,9 +2464,12 @@ impl AIClient for ServerApi {
         &self,
         limit: i32,
         filter: TaskListFilter,
+        request_team_scope: Option<RequestTeamScope>,
     ) -> anyhow::Result<serde_json::Value, anyhow::Error> {
         let url = build_list_agent_runs_url(limit, &filter);
-        let response: serde_json::Value = self.get_public_api(&url).await?;
+        let response: serde_json::Value = self
+            .get_public_api_with_team_scope(&url, request_team_scope)
+            .await?;
         Ok(response)
     }
 

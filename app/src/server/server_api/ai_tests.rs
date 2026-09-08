@@ -157,6 +157,47 @@ fn ambient_agent_headers_for_task_overrides_existing_cloud_agent_header() {
 }
 
 #[test]
+fn list_agent_runs_sends_selected_team_header() {
+    let team_uid = ServerId::from(123);
+    let scope = RequestTeamScope::from_scope(&TeamContextForOperation::new_for_test(team_uid));
+    let _request = {
+        let mut server = warp_core::channel::ChannelState::mock_server();
+        server
+            .mock("GET", "/api/v1/agent/runs")
+            .match_header(TEAM_UID_HEADER, team_uid.to_string().as_str())
+            .with_status(200)
+            .with_body(r#"{"runs":[]}"#)
+            .create()
+    };
+    let server_api = ServerApi::new_for_test();
+
+    block_on(
+        server_api.get_public_api_with_team_scope::<serde_json::Value>("agent/runs", Some(scope)),
+    )
+    .unwrap();
+}
+
+#[test]
+fn list_agent_runs_omits_team_header_for_teamless_scope() {
+    let scope = RequestTeamScope::from_scope(&TeamlessScopeForTest);
+    let _request = {
+        let mut server = warp_core::channel::ChannelState::mock_server();
+        server
+            .mock("GET", "/api/v1/agent/runs")
+            .match_header(TEAM_UID_HEADER, Matcher::Missing)
+            .with_status(200)
+            .with_body(r#"{"runs":[]}"#)
+            .create()
+    };
+    let server_api = ServerApi::new_for_test();
+
+    block_on(
+        server_api.get_public_api_with_team_scope::<serde_json::Value>("agent/runs", Some(scope)),
+    )
+    .unwrap();
+}
+
+#[test]
 fn spawn_agent_request_serializes_explicit_personal_ownership() {
     let request = SpawnAgentRequest {
         prompt: Some("hello".to_string()),
